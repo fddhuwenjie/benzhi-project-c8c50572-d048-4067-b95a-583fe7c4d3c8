@@ -146,37 +146,23 @@ func ArtifactWithSections(source ArtifactSource, reviewer, head string) (domain.
 	if source.Campaign == nil {
 		return domain.Artifact{}, domain.ErrInvalid
 	}
-	sort.Slice(source.References, func(i, j int) bool { return source.References[i].EvidenceID < source.References[j].EvidenceID })
-	sort.Slice(source.Rounds, func(i, j int) bool {
-		if source.Rounds[i].Sequence == source.Rounds[j].Sequence {
-			return source.Rounds[i].RoundID < source.Rounds[j].RoundID
-		}
-		return source.Rounds[i].Sequence < source.Rounds[j].Sequence
-	})
-	sort.Slice(source.RoundVoids, func(i, j int) bool { return source.RoundVoids[i].RoundID < source.RoundVoids[j].RoundID })
-	sort.Slice(source.Evaluations, func(i, j int) bool { return source.Evaluations[i].Revision < source.Evaluations[j].Revision })
-	sort.Slice(source.Deviations, func(i, j int) bool { return source.Deviations[i].DeviationID < source.Deviations[j].DeviationID })
-	sort.Slice(source.Plans, func(i, j int) bool {
-		if source.Plans[i].DeviationID == source.Plans[j].DeviationID {
-			return source.Plans[i].Version < source.Plans[j].Version
-		}
-		return source.Plans[i].DeviationID < source.Plans[j].DeviationID
-	})
-	sort.Slice(source.Reviews, func(i, j int) bool { return source.Reviews[i].Revision < source.Reviews[j].Revision })
-	sort.Slice(source.Claims, func(i, j int) bool { return source.Claims[i].Version < source.Claims[j].Version })
-	sort.Slice(source.Withdrawals, func(i, j int) bool { return source.Withdrawals[i].EvidenceID < source.Withdrawals[j].EvidenceID })
-	sort.Slice(source.Findings, func(i, j int) bool { return source.Findings[i].FindingID < source.Findings[j].FindingID })
-	sort.Slice(source.Resolutions, func(i, j int) bool { return source.Resolutions[i].FindingID < source.Resolutions[j].FindingID })
-	sort.Slice(source.Baselines, func(i, j int) bool { return source.Baselines[i].DeviceID < source.Baselines[j].DeviceID })
-	sort.Slice(source.RemediationEvidence, func(i, j int) bool {
-		return source.RemediationEvidence[i].EvidenceID < source.RemediationEvidence[j].EvidenceID
-	})
-	sort.Slice(source.Exclusions, func(i, j int) bool {
-		if source.Exclusions[i].RoundID == source.Exclusions[j].RoundID {
-			return source.Exclusions[i].DeviceID < source.Exclusions[j].DeviceID
-		}
-		return source.Exclusions[i].RoundID < source.Exclusions[j].RoundID
-	})
+	// Sort defensive copies so callers' slices keep their original order and
+	// the generated artifact remains deterministic. Operating on shared
+	// backing arrays would otherwise silently mutate the caller's slices.
+	source.References = sortedReferencesCopy(source.References)
+	source.Rounds = sortedRoundsCopy(source.Rounds)
+	source.RoundVoids = sortedRoundVoidsCopy(source.RoundVoids)
+	source.Evaluations = sortedEvaluationsCopy(source.Evaluations)
+	source.Deviations = sortedDeviationsCopy(source.Deviations)
+	source.Plans = sortedPlansCopy(source.Plans)
+	source.Reviews = sortedReviewsCopy(source.Reviews)
+	source.Claims = sortedClaimsCopy(source.Claims)
+	source.Withdrawals = sortedWithdrawalsCopy(source.Withdrawals)
+	source.Findings = sortedFindingsCopy(source.Findings)
+	source.Resolutions = sortedResolutionsCopy(source.Resolutions)
+	source.Baselines = sortedBaselinesCopy(source.Baselines)
+	source.RemediationEvidence = sortedRemediationEvidenceCopy(source.RemediationEvidence)
+	source.Exclusions = sortedExclusionsCopy(source.Exclusions)
 	source.Events = NormalizeEvents(source.Events)
 	type roundsSection struct {
 		Rounds     []domain.MeasurementRound    `json:"rounds"`
@@ -355,6 +341,109 @@ func nonNilEvents(v []Event) []Event {
 		return []Event{}
 	}
 	return v
+}
+
+// sortedReferencesCopy returns a sorted copy of the provided reference
+// evidence, leaving the caller's slice order untouched.
+func sortedReferencesCopy(v []domain.ReferenceEvidence) []domain.ReferenceEvidence {
+	out := append([]domain.ReferenceEvidence(nil), v...)
+	sort.Slice(out, func(i, j int) bool { return out[i].EvidenceID < out[j].EvidenceID })
+	return out
+}
+
+func sortedRoundsCopy(v []domain.MeasurementRound) []domain.MeasurementRound {
+	out := append([]domain.MeasurementRound(nil), v...)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Sequence == out[j].Sequence {
+			return out[i].RoundID < out[j].RoundID
+		}
+		return out[i].Sequence < out[j].Sequence
+	})
+	return out
+}
+
+func sortedRoundVoidsCopy(v []domain.RoundVoid) []domain.RoundVoid {
+	out := append([]domain.RoundVoid(nil), v...)
+	sort.Slice(out, func(i, j int) bool { return out[i].RoundID < out[j].RoundID })
+	return out
+}
+
+func sortedEvaluationsCopy(v []domain.Evaluation) []domain.Evaluation {
+	out := append([]domain.Evaluation(nil), v...)
+	sort.Slice(out, func(i, j int) bool { return out[i].Revision < out[j].Revision })
+	return out
+}
+
+func sortedDeviationsCopy(v []domain.DeviationCase) []domain.DeviationCase {
+	out := append([]domain.DeviationCase(nil), v...)
+	sort.Slice(out, func(i, j int) bool { return out[i].DeviationID < out[j].DeviationID })
+	return out
+}
+
+func sortedPlansCopy(v []domain.RemediationPlan) []domain.RemediationPlan {
+	out := append([]domain.RemediationPlan(nil), v...)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].DeviationID == out[j].DeviationID {
+			return out[i].Version < out[j].Version
+		}
+		return out[i].DeviationID < out[j].DeviationID
+	})
+	return out
+}
+
+func sortedReviewsCopy(v []domain.Review) []domain.Review {
+	out := append([]domain.Review(nil), v...)
+	sort.Slice(out, func(i, j int) bool { return out[i].Revision < out[j].Revision })
+	return out
+}
+
+func sortedClaimsCopy(v []domain.ReviewClaim) []domain.ReviewClaim {
+	out := append([]domain.ReviewClaim(nil), v...)
+	sort.Slice(out, func(i, j int) bool { return out[i].Version < out[j].Version })
+	return out
+}
+
+func sortedWithdrawalsCopy(v []domain.ReferenceWithdrawal) []domain.ReferenceWithdrawal {
+	out := append([]domain.ReferenceWithdrawal(nil), v...)
+	sort.Slice(out, func(i, j int) bool { return out[i].EvidenceID < out[j].EvidenceID })
+	return out
+}
+
+func sortedFindingsCopy(v []domain.ReviewFinding) []domain.ReviewFinding {
+	out := append([]domain.ReviewFinding(nil), v...)
+	sort.Slice(out, func(i, j int) bool { return out[i].FindingID < out[j].FindingID })
+	return out
+}
+
+func sortedResolutionsCopy(v []domain.FindingResolution) []domain.FindingResolution {
+	out := append([]domain.FindingResolution(nil), v...)
+	sort.Slice(out, func(i, j int) bool { return out[i].FindingID < out[j].FindingID })
+	return out
+}
+
+func sortedBaselinesCopy(v []domain.DeviceBaseline) []domain.DeviceBaseline {
+	out := append([]domain.DeviceBaseline(nil), v...)
+	sort.Slice(out, func(i, j int) bool { return out[i].DeviceID < out[j].DeviceID })
+	return out
+}
+
+func sortedRemediationEvidenceCopy(v []domain.RemediationEvidence) []domain.RemediationEvidence {
+	out := append([]domain.RemediationEvidence(nil), v...)
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].EvidenceID < out[j].EvidenceID
+	})
+	return out
+}
+
+func sortedExclusionsCopy(v []domain.SampleExclusion) []domain.SampleExclusion {
+	out := append([]domain.SampleExclusion(nil), v...)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].RoundID == out[j].RoundID {
+			return out[i].DeviceID < out[j].DeviceID
+		}
+		return out[i].RoundID < out[j].RoundID
+	})
+	return out
 }
 
 // Artifact 保留日志实例方法以兼容现有调用方。
