@@ -331,11 +331,14 @@ type ReproducibilityResult struct {
 func (s *Service) VerifyReproducibility(id string, rev int64) (*ReproducibilityResult, error) {
 	c, e := s.get(id)
 	if e != nil {
-		return &ReproducibilityResult{FailureCode: "INPUT_MISSING"}, nil
+		if errors.Is(e, sql.ErrNoRows) {
+			return &ReproducibilityResult{FailureCode: "INPUT_MISSING"}, nil
+		}
+		return nil, e
 	}
 	es, e := s.Store.Evaluations(id)
 	if e != nil {
-		return &ReproducibilityResult{FailureCode: "INPUT_MISSING"}, nil
+		return nil, e
 	}
 	var target *domain.Evaluation
 	for i := range es {
@@ -348,7 +351,7 @@ func (s *Service) VerifyReproducibility(id string, rev int64) (*ReproducibilityR
 	}
 	events, e := s.Store.Audits(id)
 	if e != nil {
-		return &ReproducibilityResult{FailureCode: "INPUT_MISSING"}, nil
+		return nil, e
 	}
 	prefix := make([]audit.Event, 0, rev)
 	for _, event := range events {
@@ -364,15 +367,15 @@ func (s *Service) VerifyReproducibility(id string, rev int64) (*ReproducibilityR
 	}
 	rs, e := s.Store.Rounds(id)
 	if e != nil {
-		return &ReproducibilityResult{FailureCode: "INPUT_MISSING"}, nil
+		return nil, e
 	}
 	vs, e := s.Store.RoundVoids(id)
 	if e != nil {
-		return &ReproducibilityResult{FailureCode: "INPUT_MISSING"}, nil
+		return nil, e
 	}
 	xs, e := s.Store.SampleExclusions(id)
 	if e != nil {
-		return &ReproducibilityResult{FailureCode: "INPUT_MISSING"}, nil
+		return nil, e
 	}
 	rs = effectiveWithoutExclusions(rs, vs, xs)
 	probe := *c
