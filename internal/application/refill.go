@@ -681,13 +681,19 @@ func (s *Service) QualificationBatch(id string, in QualificationBatchInput) (*Qu
 	if err != nil {
 		return nil, err
 	}
+	// Normalize a private copy so the caller's original input (field values,
+	// time zones, outer order and per-check device order) is preserved for
+	// downstream correlation and signature generation.
+	checks := make([]QualificationBatchCheck, len(in.Checks))
 	seen := map[string]bool{}
-	for i := range in.Checks {
-		q := &in.Checks[i]
-		q.QueryID = strings.TrimSpace(q.QueryID)
-		q.StationCode = strings.TrimSpace(q.StationCode)
-		q.WindowStart = q.WindowStart.UTC()
-		q.WindowEnd = q.WindowEnd.UTC()
+	for i, src := range in.Checks {
+		q := QualificationBatchCheck{
+			QueryID:     strings.TrimSpace(src.QueryID),
+			StationCode: strings.TrimSpace(src.StationCode),
+			WindowStart: src.WindowStart.UTC(),
+			WindowEnd:   src.WindowEnd.UTC(),
+			DeviceIDs:   make([]string, len(src.DeviceIDs)),
+		}
 		if q.QueryID == "" || seen[q.QueryID] {
 			return nil, domain.ErrInvalid
 		}
@@ -696,34 +702,35 @@ func (s *Service) QualificationBatch(id string, in QualificationBatchInput) (*Qu
 			return nil, domain.ErrInvalid
 		}
 		devices := make(map[string]bool, len(q.DeviceIDs))
-		for j := range q.DeviceIDs {
-			q.DeviceIDs[j] = strings.TrimSpace(q.DeviceIDs[j])
+		for j, d := range src.DeviceIDs {
+			q.DeviceIDs[j] = strings.TrimSpace(d)
 			if q.DeviceIDs[j] == "" || devices[q.DeviceIDs[j]] {
 				return nil, domain.ErrInvalid
 			}
 			devices[q.DeviceIDs[j]] = true
 		}
 		sort.Strings(q.DeviceIDs)
+		checks[i] = q
 	}
-	sort.Slice(in.Checks, func(i, j int) bool {
-		if !in.Checks[i].WindowStart.Equal(in.Checks[j].WindowStart) {
-			return in.Checks[i].WindowStart.Before(in.Checks[j].WindowStart)
+	sort.Slice(checks, func(i, j int) bool {
+		if !checks[i].WindowStart.Equal(checks[j].WindowStart) {
+			return checks[i].WindowStart.Before(checks[j].WindowStart)
 		}
-		if !in.Checks[i].WindowEnd.Equal(in.Checks[j].WindowEnd) {
-			return in.Checks[i].WindowEnd.Before(in.Checks[j].WindowEnd)
+		if !checks[i].WindowEnd.Equal(checks[j].WindowEnd) {
+			return checks[i].WindowEnd.Before(checks[j].WindowEnd)
 		}
-		return in.Checks[i].QueryID < in.Checks[j].QueryID
+		return checks[i].QueryID < checks[j].QueryID
 	})
-	out := &QualificationBatchResult{AnalyzedRevision: campaign.Revision, Checks: make([]QualificationBatchItem, 0, len(in.Checks)), EvidenceDigest: artifact.PayloadDigest, AuditHeadDigest: artifact.AuditHeadDigest}
+	out := &QualificationBatchResult{AnalyzedRevision: campaign.Revision, Checks: make([]QualificationBatchItem, 0, len(checks)), EvidenceDigest: artifact.PayloadDigest, AuditHeadDigest: artifact.AuditHeadDigest}
 	out.Summary.DeviceFailureCounts = map[string]int{}
-	out.Summary.TotalQueries = len(in.Checks)
+	out.Summary.TotalQueries = len(checks)
 	out.Summary.OverallQualified = true
-	for _, q := range in.Checks {
-		check, err := domain.BuildQualificationCheck(campaign, strings.TrimSpace(q.StationCode), q.WindowStart.UTC(), q.WindowEnd.UTC(), q.DeviceIDs, failed)
+	for _, q := range checks {
+		check, err := domain.BuildQualificationCheck(campaign, q.StationCode, q.WindowStart, q.WindowEnd, q.DeviceIDs, failed)
 		if err != nil {
 			return nil, err
 		}
-		item := QualificationBatchItem{QueryID: strings.TrimSpace(q.QueryID), WindowConclusion: check.WindowConclusion, OverallQualified: check.OverallQualified, Devices: check.Devices}
+		item := QualificationBatchItem{QueryID: q.QueryID, WindowConclusion: check.WindowConclusion, OverallQualified: check.OverallQualified, Devices: check.Devices}
 		out.Checks = append(out.Checks, item)
 		if check.OverallQualified {
 			out.Summary.QualifiedQueries++
