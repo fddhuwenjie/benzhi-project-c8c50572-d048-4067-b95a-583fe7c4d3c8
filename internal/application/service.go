@@ -874,11 +874,18 @@ func (s *Service) Snapshot(id, include string) (*Snapshot, error) {
 	return s.SnapshotForDevice(id, include, "")
 }
 func (s *Service) SnapshotForDevice(id, include, deviceID string) (*Snapshot, error) {
-	c, err := s.Store.CampaignSnapshot(id)
+	cached, err := s.Store.CampaignSnapshot(id)
 	if err != nil {
 		return nil, err
 	}
-	snap := &Snapshot{Campaign: c, References: []domain.ReferenceEvidence{}, Rounds: []domain.MeasurementRound{}, RoundVoids: []domain.RoundVoid{}, Deviations: []domain.DeviationCase{}, Reviews: []domain.Review{}, ReviewClaims: []domain.ReviewClaim{}, Audit: []audit.Event{}, Actions: []string{}, ReferenceWithdrawals: []domain.ReferenceWithdrawal{}, ReviewFindings: []domain.ReviewFinding{}, FindingResolutions: []domain.FindingResolution{}, DeviceBaselines: []domain.DeviceBaseline{}, SampleExclusions: []domain.SampleExclusion{}, RemediationEvidence: []domain.RemediationEvidence{}}
+	// CampaignSnapshot returns a shared cached aggregate. Each snapshot must be
+	// isolated so concurrent requests cannot mutate the same object or leak
+	// derived fields (e.g. ClaimStatus) between responses. Work on a private
+	// deep copy and expose it through the snapshot.
+	c := *cached
+	c.DeviceIDs = append([]string(nil), cached.DeviceIDs...)
+	c.ClaimStatus = nil
+	snap := &Snapshot{Campaign: &c, References: []domain.ReferenceEvidence{}, Rounds: []domain.MeasurementRound{}, RoundVoids: []domain.RoundVoid{}, Deviations: []domain.DeviationCase{}, Reviews: []domain.Review{}, ReviewClaims: []domain.ReviewClaim{}, Audit: []audit.Event{}, Actions: []string{}, ReferenceWithdrawals: []domain.ReferenceWithdrawal{}, ReviewFindings: []domain.ReviewFinding{}, FindingResolutions: []domain.FindingResolution{}, DeviceBaselines: []domain.DeviceBaseline{}, SampleExclusions: []domain.SampleExclusion{}, RemediationEvidence: []domain.RemediationEvidence{}}
 	snap.DeviceBaselines, err = s.Store.DeviceBaselines(id)
 	if err != nil {
 		return nil, err
@@ -948,7 +955,7 @@ func (s *Service) SnapshotForDevice(id, include, deviceID string) (*Snapshot, er
 				snap.Rounds[i].Samples = samples
 			}
 		}
-		snap.MeasurementCompletion, _ = domain.MeasurementPlanCompliance(c, effectiveWithoutExclusions(snap.Rounds, snap.RoundVoids, snap.SampleExclusions))
+		snap.MeasurementCompletion, _ = domain.MeasurementPlanCompliance(&c, effectiveWithoutExclusions(snap.Rounds, snap.RoundVoids, snap.SampleExclusions))
 	}
 	if all || selected["deviations"] {
 		snap.Deviations, err = s.Store.Deviations(id)
