@@ -955,7 +955,10 @@ func (s *Service) SnapshotForDevice(id, include, deviceID string) (*Snapshot, er
 		if err != nil {
 			return nil, err
 		}
-		plans, _ := s.Store.Plans(id)
+		plans, err := s.Store.Plans(id)
+		if err != nil {
+			return nil, err
+		}
 		for i := range snap.Deviations {
 			for _, p := range plans {
 				if p.DeviationID == snap.Deviations[i].DeviationID {

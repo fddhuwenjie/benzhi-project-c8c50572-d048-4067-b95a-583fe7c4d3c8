@@ -294,9 +294,13 @@ func (s *Store) Plans(cid string) ([]domain.RemediationPlan, error) {
 	out := []domain.RemediationPlan{}
 	for rows.Next() {
 		var b []byte
-		rows.Scan(&b)
+		if e = rows.Scan(&b); e != nil {
+			return nil, e
+		}
 		var p domain.RemediationPlan
-		json.Unmarshal(b, &p)
+		if e = json.Unmarshal(b, &p); e != nil {
+			return nil, e
+		}
 		out = append(out, p)
 	}
 	return out, rows.Err()
@@ -404,9 +408,13 @@ func (s *Store) References(cid string) ([]domain.ReferenceEvidence, error) {
 	var out []domain.ReferenceEvidence
 	for rows.Next() {
 		var b []byte
-		rows.Scan(&b)
+		if e = rows.Scan(&b); e != nil {
+			return nil, e
+		}
 		var r domain.ReferenceEvidence
-		json.Unmarshal(b, &r)
+		if e = json.Unmarshal(b, &r); e != nil {
+			return nil, e
+		}
 		out = append(out, r)
 	}
 	return out, rows.Err()
@@ -441,9 +449,13 @@ func (s *Store) Rounds(cid string) ([]domain.MeasurementRound, error) {
 	var out []domain.MeasurementRound
 	for rows.Next() {
 		var b []byte
-		rows.Scan(&b)
+		if e = rows.Scan(&b); e != nil {
+			return nil, e
+		}
 		var r domain.MeasurementRound
-		json.Unmarshal(b, &r)
+		if e = json.Unmarshal(b, &r); e != nil {
+			return nil, e
+		}
 		out = append(out, r)
 	}
 	return out, rows.Err()
@@ -462,9 +474,13 @@ func (s *Store) Deviations(cid string) ([]domain.DeviationCase, error) {
 	var out []domain.DeviationCase
 	for rows.Next() {
 		var b []byte
-		rows.Scan(&b)
+		if e = rows.Scan(&b); e != nil {
+			return nil, e
+		}
 		var d domain.DeviationCase
-		json.Unmarshal(b, &d)
+		if e = json.Unmarshal(b, &d); e != nil {
+			return nil, e
+		}
 		out = append(out, d)
 	}
 	return out, rows.Err()
