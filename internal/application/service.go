@@ -302,6 +302,26 @@ func canonicalizeMeasurementBatch(batch []domain.MeasurementRound) {
 	}
 }
 
+// cloneMeasurementBatch returns a deep copy of the batch so the caller's outer
+// slice, nested sample slices and environment maps are never mutated by
+// canonicalization or by the server-assigned fields in MeasureIdem.
+func cloneMeasurementBatch(batch []domain.MeasurementRound) []domain.MeasurementRound {
+	out := make([]domain.MeasurementRound, len(batch))
+	for i := range batch {
+		out[i] = batch[i]
+		if batch[i].Samples != nil {
+			out[i].Samples = append([]domain.Sample(nil), batch[i].Samples...)
+		}
+		if batch[i].Environment != nil {
+			out[i].Environment = make(map[string]string, len(batch[i].Environment))
+			for k, v := range batch[i].Environment {
+				out[i].Environment[k] = v
+			}
+		}
+	}
+	return out
+}
+
 func (s *Service) MeasureIdem(id string, batch []domain.MeasurementRound, revision int64, requestID, _ string) (*domain.Campaign, error) {
 	c, err := s.get(id)
 	if err != nil {
@@ -324,6 +344,10 @@ func (s *Service) MeasureIdem(id string, batch []domain.MeasurementRound, revisi
 	if err = s.check(c, revision); err != nil {
 		return nil, err
 	}
+	// Work on a deep copy of the caller's batch so canonicalization and the
+	// server-assigned fields below cannot mutate the caller's outer slice,
+	// nested sample slices or environment maps on a successful call.
+	batch = cloneMeasurementBatch(batch)
 	canonicalizeMeasurementBatch(batch)
 	for i := range batch {
 		batch[i].CampaignID = id
