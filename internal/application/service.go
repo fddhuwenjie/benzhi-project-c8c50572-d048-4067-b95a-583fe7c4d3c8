@@ -857,9 +857,18 @@ func (s *Service) Archive(id string, revision int64) (*domain.Artifact, error) {
 	if err != nil {
 		return nil, err
 	}
-	baselines, _ := s.Store.DeviceBaselines(id)
-	remEvidence, _ := s.Store.RemediationEvidence(id)
-	exclusions, _ := s.Store.SampleExclusions(id)
+	baselines, err := s.Store.DeviceBaselines(id)
+	if err != nil {
+		return nil, err
+	}
+	remEvidence, err := s.Store.RemediationEvidence(id)
+	if err != nil {
+		return nil, err
+	}
+	exclusions, err := s.Store.SampleExclusions(id)
+	if err != nil {
+		return nil, err
+	}
 	artifact, err := audit.ArtifactWithSections(audit.ArtifactSource{Campaign: c, References: refs, Rounds: rounds, RoundVoids: voids, Evaluations: evaluations, Deviations: deviations, Plans: plans, Reviews: reviews, Claims: claims, Events: events, Withdrawals: withdrawals, Findings: findings, Resolutions: resolutions, Baselines: baselines, RemediationEvidence: remEvidence, Exclusions: exclusions}, reviewer, event.Digest)
 	if err != nil {
 		return nil, err
@@ -1203,9 +1212,21 @@ func (s *Service) VerifySection(id, section string) map[string]any {
 		out["error"] = e.Error()
 		return out
 	}
-	baselines, _ := s.Store.DeviceBaselines(id)
-	remEvidence, _ := s.Store.RemediationEvidence(id)
-	exclusions, _ := s.Store.SampleExclusions(id)
+	baselines, e := s.Store.DeviceBaselines(id)
+	if e != nil {
+		out["error"] = e.Error()
+		return out
+	}
+	remEvidence, e := s.Store.RemediationEvidence(id)
+	if e != nil {
+		out["error"] = e.Error()
+		return out
+	}
+	exclusions, e := s.Store.SampleExclusions(id)
+	if e != nil {
+		out["error"] = e.Error()
+		return out
+	}
 	rebuilt, e := audit.ArtifactWithSections(audit.ArtifactSource{Campaign: campaign, References: refs, Rounds: rounds, RoundVoids: voids, Evaluations: evals, Deviations: deviations, Plans: plans, Reviews: reviews, Claims: claims, Events: events, Withdrawals: withdrawals, Findings: findings, Resolutions: resolutions, Baselines: baselines, RemediationEvidence: remEvidence, Exclusions: exclusions}, artifact.ReviewerID, artifact.AuditHeadDigest)
 	if e != nil {
 		out["error"] = e.Error()
