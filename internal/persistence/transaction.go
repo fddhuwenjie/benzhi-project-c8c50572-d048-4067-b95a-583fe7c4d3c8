@@ -1,6 +1,7 @@
 package persistence
 
 import (
+	"context"
 	"encoding/json"
 	"ground-clock-qualification/internal/audit"
 	"ground-clock-qualification/internal/domain"
@@ -40,6 +41,16 @@ func encode(v any) ([]byte, error) { return json.Marshal(v) }
 // Commit applies one aggregate revision. Inserts that represent evidence remain
 // append-only; any constraint failure rolls the complete revision back.
 func (s *Store) Commit(m Mutation) error {
+	return s.CommitContext(context.Background(), m)
+}
+
+// CommitContext applies one aggregate revision like Commit, but checks the
+// request context immediately before the irreversible transaction commit. If the
+// context has been cancelled, the transaction is rolled back so that no partial
+// revision, artifact or audit event is persisted, and the context error is
+// returned. The check runs under the writer lock so no concurrent mutation can
+// interleave between the check and the commit.
+func (s *Store) CommitContext(ctx context.Context, m Mutation) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	tx, err := s.db.Begin()
@@ -262,6 +273,11 @@ func (s *Store) Commit(m Mutation) error {
 		}
 		if _, e = tx.Exec(`INSERT INTO idem(request_id,response,request_hash) VALUES(?,?,?)`, m.IdemKey, b, m.IdemHash); e != nil {
 			return rollback(e)
+		}
+	}
+	if ctx != nil {
+		if err := ctx.Err(); err != nil {
+			return rollback(err)
 		}
 	}
 	return tx.Commit()

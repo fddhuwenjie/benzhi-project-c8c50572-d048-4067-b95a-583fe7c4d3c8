@@ -790,7 +790,9 @@ func (s *Service) Archive(id string, revision int64) (*domain.Artifact, error) {
 }
 
 func (s *Service) ArchiveContext(ctx context.Context, id string, revision int64) (*domain.Artifact, error) {
-	_ = ctx
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	c, err := s.get(id)
 	if err != nil {
 		return nil, err
@@ -870,7 +872,7 @@ func (s *Service) ArchiveContext(ctx context.Context, id string, revision int64)
 	if err != nil {
 		return nil, err
 	}
-	if err = s.Store.Commit(persistence.Mutation{Campaign: c, Artifact: &artifact, Event: &event}); err != nil {
+	if err = s.Store.CommitContext(ctx, persistence.Mutation{Campaign: c, Artifact: &artifact, Event: &event}); err != nil {
 		return nil, err
 	}
 	return &artifact, nil
