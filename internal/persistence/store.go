@@ -441,9 +441,13 @@ func (s *Store) Rounds(cid string) ([]domain.MeasurementRound, error) {
 	var out []domain.MeasurementRound
 	for rows.Next() {
 		var b []byte
-		rows.Scan(&b)
+		if e = rows.Scan(&b); e != nil {
+			return nil, e
+		}
 		var r domain.MeasurementRound
-		json.Unmarshal(b, &r)
+		if e = json.Unmarshal(b, &r); e != nil {
+			return nil, e
+		}
 		out = append(out, r)
 	}
 	return out, rows.Err()

@@ -92,8 +92,14 @@ func (s *Service) MeasurementConsistency(id, deviceID, purpose string) (domain.M
 	if err != nil {
 		return domain.MeasurementConsistency{}, err
 	}
-	voids, _ := s.Store.RoundVoids(id)
-	exclusions, _ := s.Store.SampleExclusions(id)
+	voids, err := s.Store.RoundVoids(id)
+	if err != nil {
+		return domain.MeasurementConsistency{}, err
+	}
+	exclusions, err := s.Store.SampleExclusions(id)
+	if err != nil {
+		return domain.MeasurementConsistency{}, err
+	}
 	return domain.BuildMeasurementConsistency(c, domain.EffectiveRoundsWithExclusions(rounds, voids, exclusions), deviceID, purpose)
 }
 
