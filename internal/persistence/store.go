@@ -266,25 +266,6 @@ func (s *Store) Evaluations(cid string) ([]domain.Evaluation, error) {
 	}
 	return out, rows.Err()
 }
-func (s *Store) SaveReferenceReplacement(old domain.ReferenceEvidence, newEvidence domain.ReferenceEvidence) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	tx, e := s.db.Begin()
-	if e != nil {
-		return e
-	}
-	ob, _ := json.Marshal(old)
-	nb, _ := json.Marshal(newEvidence)
-	if _, e = tx.Exec(`UPDATE refs SET data=? WHERE id=? AND campaign_id=?`, ob, old.EvidenceID, old.CampaignID); e != nil {
-		tx.Rollback()
-		return e
-	}
-	if _, e = tx.Exec(`INSERT INTO refs(id,campaign_id,data) VALUES(?,?,?)`, newEvidence.EvidenceID, newEvidence.CampaignID, nb); e != nil {
-		tx.Rollback()
-		return e
-	}
-	return tx.Commit()
-}
 func (s *Store) Plans(cid string) ([]domain.RemediationPlan, error) {
 	rows, e := s.db.Query(`SELECT data FROM remediation_plans WHERE campaign_id=? ORDER BY deviation_id,version`, cid)
 	if e != nil {

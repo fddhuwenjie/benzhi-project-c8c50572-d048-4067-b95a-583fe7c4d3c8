@@ -116,15 +116,14 @@ func (s *Service) CorrectReference(id, requestID string, in CorrectionInput) (*R
 	if e != nil {
 		return nil, e
 	}
-	if e = s.Store.SaveReferenceReplacement(refs[idx], n); e != nil {
-		return nil, e
-	}
 	e = s.Store.Commit(persistence.Mutation{
-		Campaign: c,
-		Event:    &ev,
-		IdemKey:  key,
-		IdemHash: hash,
-		Response: result,
+		Campaign:         c,
+		References:       []domain.ReferenceEvidence{n},
+		UpdateReferences: []domain.ReferenceEvidence{refs[idx]},
+		Event:            &ev,
+		IdemKey:          key,
+		IdemHash:         hash,
+		Response:         result,
 	})
 	return result, e
 }
