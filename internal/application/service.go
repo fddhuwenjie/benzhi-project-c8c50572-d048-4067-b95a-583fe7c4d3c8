@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"ground-clock-qualification/internal/audit"
 	"ground-clock-qualification/internal/domain"
 	"ground-clock-qualification/internal/persistence"
@@ -118,7 +119,10 @@ func (s *Service) replay(key, hash string, out any) (bool, error) {
 	if !ok {
 		return false, nil
 	}
-	replayed, _ := s.Store.GetIdem(key, out)
+	replayed, err := s.Store.GetIdem(key, out)
+	if err != nil {
+		return false, fmt.Errorf("idempotency replay failed: %w", err)
+	}
 	return replayed, nil
 }
 func (s *Service) newEvent(c *domain.Campaign, action, actor, summary string) (audit.Event, error) {
