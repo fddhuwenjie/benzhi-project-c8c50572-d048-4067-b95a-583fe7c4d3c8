@@ -506,6 +506,12 @@ func (s *Service) RemediateDetailed(id string, cases []domain.DeviationCase, ret
 	if err != nil {
 		return nil, err
 	}
+	// Work on a private copy so the caller's MeasurementRound (including the
+	// shared Samples slice and Environment map) is never mutated by the
+	// canonicalization/persistence performed below. Persisted material is still
+	// canonicalized, but the caller's ordering and environment text are left
+	// exactly as supplied.
+	retest = cloneMeasurementRound(retest)
 	retest.CampaignID = id
 	if retest.Purpose != "" && retest.Purpose != "retest" {
 		return nil, domain.ErrInvalid
@@ -574,6 +580,18 @@ func canonicalizeRetestRound(round *domain.MeasurementRound) {
 	for key, value := range round.Environment {
 		round.Environment[key] = strings.TrimSpace(value)
 	}
+}
+
+func cloneMeasurementRound(round domain.MeasurementRound) domain.MeasurementRound {
+	round.Samples = append([]domain.Sample(nil), round.Samples...)
+	if round.Environment != nil {
+		env := make(map[string]string, len(round.Environment))
+		for k, v := range round.Environment {
+			env[k] = v
+		}
+		round.Environment = env
+	}
+	return round
 }
 
 func sampleFor(round domain.MeasurementRound, deviceID string) (domain.Sample, bool) {
