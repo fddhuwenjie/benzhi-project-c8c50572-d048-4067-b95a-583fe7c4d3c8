@@ -955,6 +955,10 @@ func respond(w http.ResponseWriter, v any, e error) {
 	if e != nil {
 		status := 400
 		code := "invalid_input"
+		if errors.Is(e, application.ErrRequestCancelled) {
+			write(w, map[string]string{"error": "request_cancelled", "message": e.Error()}, 499)
+			return
+		}
 		if errors.Is(e, domain.ErrConflict) {
 			status = 409
 			code = "revision_conflict"

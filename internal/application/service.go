@@ -159,6 +159,9 @@ func (s *Service) CreateWithPlanContext(ctx context.Context, input CreateInput, 
 }
 
 func (s *Service) createWithPlan(ctx context.Context, input CreateInput, measurementPlan *domain.MeasurementPlan, requestID string, useDefault bool) (*domain.Campaign, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, ErrRequestCancelled
+	}
 	hash, key := requestHash(struct {
 		Input CreateInput             `json:"input"`
 		Plan  *domain.MeasurementPlan `json:"measurement_plan,omitempty"`
